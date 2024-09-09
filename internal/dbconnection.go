@@ -38,7 +38,7 @@ func LoadConfig(filename string) (*Config, error) {
 }
 
 // Функция для подключения к бд
-func DBConnection(c Config) {
+func DBConnection(c Config) (*sql.DB, error) {
 	// Формирование строки подключения на основе данных из конфига
 	connectionString := fmt.Sprintf("user=%s password=%s dbname=%s host=%s port=%d sslmode=disable",
 		c.Database.User,
@@ -56,7 +56,7 @@ func DBConnection(c Config) {
 	defer db.Close()
 
 	fmt.Println("Successful connection to the database")
-
+	return db, nil
 }
 
 func main() {
@@ -64,5 +64,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
-	DBConnection(*config)
+	db, err := DBConnection(*config)
+	if err != nil {
+		log.Fatalf("Failed to connect to database: %v", err)
+	}
+	defer db.Close()
 }
