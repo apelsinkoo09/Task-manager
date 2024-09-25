@@ -1,4 +1,4 @@
-package internal
+package main
 
 import (
 	"database/sql"
@@ -37,10 +37,10 @@ func LoadConfig(filename string) (*Config, error) {
 	return &configuration, nil
 }
 
-// Функция для подключения к бд
+// Функция для подключения к бд, передача в метод указатель!!! на пул соединений
 func DBConnection(c Config) (*sql.DB, error) {
 	// Формирование строки подключения на основе данных из конфига
-	connectionString := fmt.Sprintf("user=%s password=%s dbname=%s host=%s port=%d sslmode=disable",
+	connectionString := fmt.Sprintf("user=%s password=%s dbname='%s' host=%s port=%d sslmode=disable",
 		c.Database.User,
 		c.Database.Password,
 		c.Database.DBName,
@@ -51,22 +51,26 @@ func DBConnection(c Config) (*sql.DB, error) {
 
 	db, err := sql.Open("postgres", connectionString)
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		log.Printf("Failed to connect to database: %v", err)
 	}
-	defer db.Close()
+
+	// Проверка подключения
+	if err := db.Ping(); err != nil {
+		return nil, fmt.Errorf("failed to ping database: %v", err)
+	}
 
 	fmt.Println("Successful connection to the database")
 	return db, nil
 }
 
 func main() {
-	config, err := LoadConfig("../config/config.yaml")
+	config, err := LoadConfig("configs/config.yaml")
 	if err != nil {
-		log.Fatalf("Failed to load configuration: %v", err)
+		log.Printf("Failed to load configuration: %v", err)
 	}
 	db, err := DBConnection(*config)
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		log.Printf("Failed to connect to database: %v", err)
 	}
 	defer db.Close()
 }
