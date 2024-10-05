@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/apelsinkoo09/task-manager/internal/handlers"
+	"github.com/apelsinkoo09/task-manager/internal/models"
 	_ "github.com/lib/pq"
 )
 
@@ -46,19 +48,75 @@ func connectHandler(w http.ResponseWriter, r *http.Request) {
 		log.Printf("failed to ping database: %v", err)
 		return
 	}
+	log.Println("Connection succesfull")
+
+	// Настройка максимального количества открытых соединений
+	db.SetMaxOpenConns(25)
+
+	// Настройка максимального количества свободных соединений
+	db.SetMaxIdleConns(25)
+
+	// Настройка максимального времени ожидания перед разрывом соединения
+	db.SetConnMaxLifetime(5 * time.Minute)
+
 	// Отправка ответа клиенту
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Successfully connected to the database!"))
+}
+func GetAllTasksHandler(db *sql.DB) http.HandlerFunc { //db - соединение с базой
+	return func(w http.ResponseWriter, r *http.Request) { // хендлер
+		//  w http.ResponseWriter - интерфейс для записи ответа клиенту
+		//  r *http.Request - структура принимаемого запроса от клиента
+		tasks, err := models.ReadAll(db)
+		if err != nil {
+			http.Error(w, "Unable to retrieve tasks", http.StatusInternalServerError)
+			// Сообщение клиенту об ошибке
+			// http.StatusInternalServerError - 500 статус
+			return
+		}
+		w.Header().Set("Content-Type", "application/json") // установка заголовка http ответа в формате ключ, значения, запись в карту. Формат отправляемых значений json
+		json.NewEncoder(w).Encode(tasks)                   // кодирование в формат json
+	}
 }
 
 func main() {
 	// Настройка маршрутов
 	http.HandleFunc("/connect", connectHandler)
-	http.HandleFunc("/api/v1/tasks", handlers.GetAllTasksHandler(db))
-	http.HandleFunc("/api/v1/task", handlers.GetIdTaskHandler(db))
-	http.HandleFunc("/api/v1/task/create", handlers.CreateTaskHandler(db))
-	http.HandleFunc("/api/v1/task/update", handlers.UpdateTaskHandler(db))
-	http.HandleFunc("/api/v1/task/delete", handlers.DeleteTaskHandler(db))
+	http.HandleFunc("/api/v1.1/tasks", func(w http.ResponseWriter, r *http.Request) { // обязательно проверять на существование подключения к бд, хандлер вызывать в теле маршрутизатора
+		if db == nil {
+			http.Error(w, "Database not connected", http.StatusInternalServerError)
+			return
+		}
+		GetAllTasksHandler(db)(w, r)
+	})
+	http.HandleFunc("/api/v1.1/task", func(w http.ResponseWriter, r *http.Request) {
+		if db == nil {
+			http.Error(w, "Database not connected", http.StatusInternalServerError)
+			return
+		}
+		handlers.GetIdTaskHandler(db)(w, r)
+	})
+	http.HandleFunc("/api/v1.1/task/create", func(w http.ResponseWriter, r *http.Request) {
+		if db == nil {
+			http.Error(w, "Database not connected", http.StatusInternalServerError)
+			return
+		}
+		handlers.CreateTaskHandler(db)(w, r)
+	})
+	http.HandleFunc("/api/v1.1/task/update", func(w http.ResponseWriter, r *http.Request) {
+		if db == nil {
+			http.Error(w, "Database not connected", http.StatusInternalServerError)
+			return
+		}
+		handlers.UpdateTaskHandler(db)(w, r)
+	})
+	http.HandleFunc("/api/v1.1/task/delete", func(w http.ResponseWriter, r *http.Request) {
+		if db == nil {
+			http.Error(w, "Database not connected", http.StatusInternalServerError)
+			return
+		}
+		handlers.DeleteTaskHandler(db)(w, r)
+	})
 
 	// Запуск сервера
 	log.Println("Server is running on port 8081...")
