@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/apelsinkoo09/task-manager/internal/handlers"
-	"github.com/apelsinkoo09/task-manager/internal/models"
 	_ "github.com/lib/pq"
 )
 
@@ -63,21 +62,6 @@ func connectHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Successfully connected to the database!"))
 }
-func GetAllTasksHandler(db *sql.DB) http.HandlerFunc { //db - соединение с базой
-	return func(w http.ResponseWriter, r *http.Request) { // хендлер
-		//  w http.ResponseWriter - интерфейс для записи ответа клиенту
-		//  r *http.Request - структура принимаемого запроса от клиента
-		tasks, err := models.ReadAll(db)
-		if err != nil {
-			http.Error(w, "Unable to retrieve tasks", http.StatusInternalServerError)
-			// Сообщение клиенту об ошибке
-			// http.StatusInternalServerError - 500 статус
-			return
-		}
-		w.Header().Set("Content-Type", "application/json") // установка заголовка http ответа в формате ключ, значения, запись в карту. Формат отправляемых значений json
-		json.NewEncoder(w).Encode(tasks)                   // кодирование в формат json
-	}
-}
 
 func main() {
 	// Настройка маршрутов
@@ -87,7 +71,7 @@ func main() {
 			http.Error(w, "Database not connected", http.StatusInternalServerError)
 			return
 		}
-		GetAllTasksHandler(db)(w, r)
+		handlers.GetAllTasksHandler(db)(w, r)
 	})
 	http.HandleFunc("/api/v1.1/task", func(w http.ResponseWriter, r *http.Request) {
 		if db == nil {
