@@ -73,7 +73,7 @@ func main() {
 		}
 		handlers.GetAllTasksHandler(db)(w, r)
 	})
-	http.HandleFunc("/api/v1.1/task", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/api/v1.1/task", func(w http.ResponseWriter, r *http.Request) { // id указывается через вопросительный знак task?id=1
 		if db == nil {
 			http.Error(w, "Database not connected", http.StatusInternalServerError)
 			return
